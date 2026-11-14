@@ -18,7 +18,7 @@
 
   PD.buildSong = function (mid, split = 60) {
     const sec = tickToSec(mid);
-    const tracks = [...new Set(mid.notes.map((x) => x.track))];
+    const tracks = [...new Set(mid.notes.map((x) => x.track))].sort((a, b) => a - b);
     const notes = mid.notes.map((x) => ({
       n: x.n, start: sec(x.tick), end: sec(x.tick + (x.dur || mid.ppq / 2)), vel: x.vel || 80,
       hand: tracks.length === 2 ? (x.track === tracks[0] ? 'R' : 'L') : (x.n >= split ? 'R' : 'L'),
@@ -125,8 +125,9 @@
         if (!$('wait').checked) for (const x of song.notes) if (mine(x) && !x.done && !x.miss && x.start < nt - 0.25 && x.start >= range[0]) { x.miss = true; st.miss++; stat(); }
         t = nt;
         if (t >= range[1]) {
+          const res = { ...st, section: $('sec').value, hand: $('hand').value, wait: $('wait').checked, speed };
           if ($('loop').checked) { reset(); t = range[0] - 1.2; } else { playing = false; $('play').textContent = '▶ Chơi'; allOff(); }
-          opts.onLoop && opts.onLoop({ ...st });
+          if (opts.onLoop) { const m = opts.onLoop(res); if (m) $('stat').textContent = m; }
         }
       }
       draw();
@@ -169,6 +170,6 @@
     $('hand').onchange = () => { reset(); opts.onChange && opts.onChange({ hand: $('hand').value }); };
     $('speed').oninput = () => { speed = Number($('speed').value) / 100; $('spv').textContent = $('speed').value + '%'; };
     setRange(); last = performance.now(); raf = requestAnimationFrame(frame);
-    return { destroy() { cancelAnimationFrame(raf); unsub(); allOff(); kb.destroy(); root.innerHTML = ''; } };
+    return { sectionCount: secs.length, destroy() { cancelAnimationFrame(raf); unsub(); allOff(); kb.destroy(); root.innerHTML = ''; } };
   };
 })(window.PD);

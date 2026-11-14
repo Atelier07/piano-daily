@@ -37,7 +37,7 @@
 
   // gom nốt bắt đầu gần nhau thành 1 bước (hợp âm); hand: 'R' | 'L' | 'B'
   PD.songToSections = function (mid, hand = 'R', barsPer = 2, split = 60) {
-    const tracks = [...new Set(mid.notes.map((x) => x.track))];
+    const tracks = [...new Set(mid.notes.map((x) => x.track))].sort((a, b) => a - b);
     const pick = (x) => {
       if (hand === 'B') return true;
       if (tracks.length === 2) return hand === 'R' ? x.track === tracks[0] : x.track === tracks[1];

@@ -82,7 +82,8 @@
       ${short ? '' : `<div class="part" data-part="learn"><span class="tag">${found.length ? '2' : '1'} · Bài mới ~5 phút</span>
         <div class="item"><span class="check ${s.done['learn-' + d.day] ? 'on' : ''}">${s.done['learn-' + d.day] ? '✓' : ''}</span><span class="t">Đọc: ${PD.esc(d.title)}</span><button class="btn small" data-learn>Đọc</button></div>
         <div data-slot="learn"></div></div>
-      <div class="part" data-part="practice"><span class="tag">${found.length ? '3' : '2'} · Luyện ~15 phút</span>${d.practice.map((id) => item(id)).join('')}</div>`}
+      <div class="part" data-part="practice"><span class="tag">${found.length ? '3' : '2'} · Luyện ~10 phút</span>${d.practice.map((id) => item(id)).join('')}</div>
+      ${opts.day ? '' : `<div class="part" data-part="song"><span class="tag">${found.length ? '4' : '3'} · Bài bạn thích ~5 phút</span><div data-songpart></div></div>`}`}
       <div class="row" style="margin-top:20px"><button class="btn primary" data-finish>${short ? 'Xong buổi ngắn' : 'Xong buổi hôm nay'}</button>
         ${!short && !opts.day ? '<button class="btn" data-short>Hôm nay mệt: buổi 10 phút</button>' : ''}</div>
       <p class="small muted" data-msg></p>`;
@@ -101,6 +102,7 @@
       const ok = document.createElement('button'); ok.className = 'btn primary'; ok.textContent = 'Hiểu rồi'; card.appendChild(ok);
       ok.onclick = () => { s.done['learn-' + d.day] = true; save(); slot.innerHTML = ''; const c = lb.parentElement.querySelector('.check'); c.classList.add('on'); c.textContent = '✓'; };
     };
+    const sp = main.querySelector('[data-songpart]'); if (sp) songPart(sp, d);
     const sb = main.querySelector('[data-short]'); if (sb) sb.onclick = () => viewToday({ short: true });
     main.querySelector('[data-finish]').onclick = () => {
       const m = main.querySelector('[data-msg]');
@@ -119,6 +121,45 @@
       main.innerHTML = `<h1>Xong buổi rồi.</h1><p class="streak">${PD.streak(S)} ngày</p><p class="muted">Chuỗi ngày học. Lỡ một ngày vẫn giữ chuỗi; lỡ hai ngày liền mới mất.</p>
         ${!short && !opts.day ? `<p>Ngày mai: <b>${PD.esc((dayDef(S.day) || { title: 'đang soạn' }).title)}</b></p>` : ''}
         <p class="small muted">Còn sức thì ngồi chơi tự do vài phút — vòng hợp âm, bài đã thuộc — không chấm gì cả.</p>`;
+    };
+  }
+
+  // ---------- BÀI BẠN THÍCH trong buổi học ----------
+  const HANDS = { R: 'tay phải', L: 'tay trái', B: 'hai tay' };
+  function songPart(el, d) {
+    const k = S.songs.findIndex((x) => x.mid && !x.done);
+    if (k < 0) {
+      const ready = PD.BUILTIN.filter((x) => (x.fromDay || 1) <= S.day && !S.songs.some((s) => s.title === x.title));
+      el.innerHTML = `<p class="small muted">Chưa có bài nào trong hàng đợi. Thêm bài ở tab <b>Bài của bạn</b> (file MIDI), hoặc chọn bài mẫu hợp trình độ:</p>` +
+        (ready.length ? ready.map((x) => `<div class="item"><span class="t">${PD.esc(x.title)}<br><span class="small muted">${PD.esc(x.note)}</span></span><button class="btn small" data-addbi="${PD.BUILTIN.indexOf(x)}">Thêm</button></div>`).join('')
+          : `<p class="small muted">Bài mẫu đầu tiên ("Sáng chủ nhật") mở từ ngày 11. Trước đó cứ nghe thử các bài mẫu ở tab Bài của bạn.</p>`);
+      el.querySelectorAll('[data-addbi]').forEach((b) => b.onclick = () => { const x = PD.BUILTIN[b.dataset.addbi]; S.songs.push({ title: x.title, link: x.link, mid: x.mid }); save(); songPart(el, d); });
+      return;
+    }
+    const song = S.songs[k]; song.cur = song.cur || { hand: 'R', section: 0 };
+    el.innerHTML = `<div class="item"><span class="check ${sess().done.song ? 'on' : ''}">${sess().done.song ? '✓' : ''}</span><span class="t"><b>${PD.esc(song.title)}</b><br><span class="small muted">Hôm nay: đoạn ${song.cur.section + 1}, ${HANDS[song.cur.hand]}</span></span><button class="btn small" data-go>Tập</button></div><div data-pl></div>
+      <p class="small muted">Qua đoạn = tắt "Chờ bấm đúng", tốc độ từ 60%, đúng ≥ 90%. Qua rồi web tự chuyển đoạn sau.</p>`;
+    el.querySelector('[data-go]').onclick = () => {
+      closeEx(); const box = el.querySelector('[data-pl]'); box.className = 'card';
+      current = PD.Player(box, PD.buildSong(song.mid), {
+        hand: song.cur.hand, section: song.cur.section,
+        onLoop: (r) => {
+          const tot = r.hit + r.miss + r.wrong; if (!tot) return '';
+          const acc = r.hit / tot; sess().done.song = true; save();
+          if (String(r.section) !== String(song.cur.section) || r.hand !== song.cur.hand) return `Đúng ${Math.round(acc * 100)}%`;
+          if (acc < 0.9) return `Đúng ${Math.round(acc * 100)}% — chưa qua (cần 90%). Thử chậm lại.`;
+          if (r.wait) return `Đúng ${Math.round(acc * 100)}% — tốt! Giờ tắt "Chờ bấm đúng" để qua đoạn.`;
+          if (r.speed < 0.6) return `Đúng ${Math.round(acc * 100)}% — tăng tốc lên 60% để qua đoạn.`;
+          const n = current && current.sectionCount || 1;
+          if (song.cur.section + 1 < n) song.cur.section++;
+          else if (song.cur.hand === 'R') song.cur = { hand: 'L', section: 0 };
+          else if (song.cur.hand === 'L') song.cur = { hand: 'B', section: 0 };
+          else song.done = true;
+          save();
+          return song.done ? 'Xong cả bài rồi! Chọn bài kế ở tab Bài của bạn.' : `Qua đoạn! Lần sau: đoạn ${song.cur.section + 1}, ${HANDS[song.cur.hand]}.`;
+        },
+      });
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
   }
 
