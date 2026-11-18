@@ -202,7 +202,7 @@ window.PD = window.PD || {};
   const blank = () => ({ day: 1, done: {}, ex: {}, review: [], songs: [], sessions: {}, settings: { minutes: 30 }, created: PD.today() });
   PD.today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
   PD.load = function () { try { const s = JSON.parse(localStorage.getItem(KEY)); return s ? Object.assign(blank(), s) : blank(); } catch (e) { return blank(); } };
-  PD.save = function (s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { console.warn('Không lưu được', e); } };
+  PD.save = function (s) { s.updated = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { console.warn('Không lưu được', e); } if (PD.pushRemote) PD.pushRemote(s); };
   // chuỗi ngày: lỡ 1 ngày vẫn giữ chuỗi
   PD.streak = function (s) {
     const days = new Set(Object.entries(s.sessions || {}).filter(([, v]) => v && v.finished).map(([k]) => k));

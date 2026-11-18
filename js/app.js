@@ -8,13 +8,20 @@
 
   // ---------- MIDI ----------
   const dot = document.getElementById('midiDot');
-  function midiUI(err) {
+  let midiUI = function (err) {
     if (err) { dot.textContent = '○ Nối đàn'; dot.title = err; dot.className = ''; return; }
     dot.textContent = PD.midiState.connected ? '● Đã nối ' + PD.midiState.names[0] : '○ Nối đàn';
     dot.className = PD.midiState.connected ? 'on' : '';
-  }
+  };
   dot.onclick = () => PD.connectMIDI(midiUI);
+  // đàn Bluetooth tắt/mở: Mac phải nối lại; trang tự dò lại mỗi 3 giây và báo rõ khi chưa thấy
+  const bar = document.createElement('div'); bar.id = 'midiBar'; bar.style.cssText = 'display:none;background:#fff4d6;color:#5b4300;padding:10px 16px;text-align:center;font-size:15px';
+  bar.textContent = 'Chưa thấy đàn. Bật đàn; nếu vẫn không thấy, mở Audio MIDI Setup trên Mac → Cấu hình Bluetooth → Kết nối ES110. Trang sẽ tự dò lại.';
+  document.body.insertBefore(bar, document.body.firstChild);
+  const baseUI = midiUI;
+  midiUI = function (err) { baseUI(err); bar.style.display = (PD.midiState && PD.midiState.connected) ? 'none' : 'block'; };
   PD.connectMIDI(midiUI);
+  setInterval(() => { if (!(PD.midiState && PD.midiState.connected)) PD.connectMIDI(midiUI); }, 3000);
 
   // ---------- tiện ích ----------
   const dayDef = (n) => PD.DAYS.find((d) => d.day === n);
@@ -295,7 +302,7 @@
         <input type="password" id="key" placeholder="${PD.tutor.hasKey() ? 'Đã có khoá — dán khoá mới để thay' : 'Dán khoá Gemini vào đây'}">
         <button class="btn" id="saveKey">Lưu khoá</button> <button class="btn" id="testKey">Thử thầy</button> <span class="small" id="keyMsg"></span></div>
       <div class="card"><h3 style="margin-top:0">Tiến độ</h3>
-        <p class="small muted">Tiến độ lưu trong trình duyệt. Thỉnh thoảng tải bản sao lưu về cho chắc.</p>
+        <p class="small muted" id="syncNote">Tiến độ lưu lên GitHub (repo riêng tư) qua chương trình nền trên Mac, và giữ thêm một bản trong trình duyệt.</p>
         <button class="btn" id="exp">Tải bản sao lưu</button> <label class="btn">Nhập bản sao lưu<input type="file" id="imp" accept=".json" hidden></label>
         <button class="btn" id="reset">Học lại từ đầu</button> <span class="small" id="pMsg"></span></div>`;
     document.getElementById('useOut').onchange = (e) => PD.setUseOut(e.target.checked);
@@ -310,7 +317,7 @@
     let armed = false;
     document.getElementById('reset').onclick = (e) => {
       if (!armed) { armed = true; e.target.textContent = 'Bấm lần nữa để xoá hết tiến độ'; return; }
-      localStorage.removeItem('pianoDaily.v1'); S = PD.load(); document.getElementById('pMsg').textContent = 'Đã xoá. Bắt đầu lại từ ngày 1.'; e.target.textContent = 'Học lại từ đầu'; armed = false;
+      localStorage.removeItem('pianoDaily.v1'); S = PD.load(); save(); document.getElementById('pMsg').textContent = 'Đã xoá. Bắt đầu lại từ ngày 1.'; e.target.textContent = 'Học lại từ đầu'; armed = false;
     };
   }
 
